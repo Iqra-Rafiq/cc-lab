@@ -1,9 +1,19 @@
 int a;
+float b;
+double c;
+string name;
+bool flag;
+char letter;
+
 a = 5;
-int b;
-b = a + 10;
-if (b > 10) {
-    return b;
+b = 3.14;
+c = a + b;
+name = "Hello, World!";
+flag = true;
+letter = 'A';
+
+if (a > 10) {
+    return c;
 } else {
     return 0;
 }

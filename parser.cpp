@@ -2,31 +2,37 @@
 #include <vector>
 #include <string>
 #include <cctype>
-#include <map>
+#include <unordered_map>
 
 using namespace std;
 
 enum TokenType {
-    T_INT, T_ID, T_NUM, T_IF, T_ELSE, T_RETURN, 
+    T_INT, T_FLOAT, T_DOUBLE, T_STRING, T_BOOL, T_CHAR,
+    T_ID, T_NUM, T_IF, T_ELSE, T_RETURN,
     T_ASSIGN, T_PLUS, T_MINUS, T_MUL, T_DIV, 
     T_LPAREN, T_RPAREN, T_LBRACE, T_RBRACE,  
-    T_SEMICOLON, T_GT, T_EOF, 
+    T_SEMICOLON, T_GT, T_EOF,
 };
 
 struct Token {
     TokenType type;
     string value;
-    size_t line; // Add line number to the token structure
+    size_t line; // Line number for error reporting
 };
 
 class Lexer {
 private:
     string src;
     size_t pos;
-    size_t line; // New member to keep track of line number
+    size_t line;
+    unordered_map<string, TokenType> keywords;
 
 public:
-    Lexer(const string &src) : pos(0), line(1) { // Initialize line to 1
+    Lexer(const string &src) : pos(0), line(1), keywords({
+        {"int", T_INT}, {"float", T_FLOAT}, {"double", T_DOUBLE},
+        {"string", T_STRING}, {"bool", T_BOOL}, {"char", T_CHAR},
+        {"if", T_IF}, {"else", T_ELSE}, {"return", T_RETURN}
+    }) {
         this->src = src;  
     }
 
@@ -35,23 +41,30 @@ public:
         while (pos < src.size()) {
             char current = src[pos];
             if (isspace(current)) {
-                if (current == '\n') line++; // Increment line number on new line
+                if (current == '\n') line++;
                 pos++;
                 continue;
             }
             if (isdigit(current)) {
-                tokens.push_back(Token{T_NUM, consumeNumber(), line}); // Set line number
+                tokens.push_back(Token{T_NUM, consumeNumber(), line});
+                continue;
+            }
+            if (current == '"') {
+                tokens.push_back(Token{T_STRING, consumeString(), line});
+                continue;
+            }
+            if (current == '\'') {
+                tokens.push_back(Token{T_CHAR, consumeChar(), line});
                 continue;
             }
             if (isalpha(current)) {
                 string word = consumeWord();
-                Token token;
-                if (word == "int") token = {T_INT, word, line};
-                else if (word == "if") token = {T_IF, word, line};
-                else if (word == "else") token = {T_ELSE, word, line};
-                else if (word == "return") token = {T_RETURN, word, line};
-                else token = {T_ID, word, line};
-                tokens.push_back(token);
+                auto it = keywords.find(word);
+                if (it != keywords.end()) {
+                    tokens.push_back(Token{it->second, word, line});
+                } else {
+                    tokens.push_back(Token{T_ID, word, line});
+                }
                 continue;
             }
             switch (current) {
@@ -76,7 +89,7 @@ public:
 
     string consumeNumber() {
         size_t start = pos;
-        while (pos < src.size() && isdigit(src[pos])) pos++;
+        while (pos < src.size() && (isdigit(src[pos]) || src[pos] == '.')) pos++;
         return src.substr(start, pos - start);
     }
 
@@ -85,14 +98,44 @@ public:
         while (pos < src.size() && isalnum(src[pos])) pos++;
         return src.substr(start, pos - start);
     }
+
+    string consumeString() {
+        size_t start = pos; // Save the start position
+        pos++; // Skip the opening quote
+        while (pos < src.size() && src[pos] != '"') {
+            if (src[pos] == '\n') {
+                line++; // Increment line number if a newline is encountered
+            }
+            pos++;
+        }
+        if (pos < src.size()) {
+            pos++; // Skip the closing quote
+            return src.substr(start, pos - start); // Return the whole string including quotes
+        } else {
+            cout << "Unterminated string literal at line " << line << endl;
+            exit(1);
+        }
+    }
+
+    string consumeChar() {
+        size_t start = pos; // Save the start position
+        pos++; // Skip the opening quote
+        if (pos < src.size() && src[pos] != '\'') {
+            pos++; // Skip the character
+        }
+        if (pos < src.size() && src[pos] == '\'') {
+            pos++; // Skip the closing quote
+            return src.substr(start, pos - start); // Return the whole char literal including quotes
+        } else {
+            cout << "Unterminated character literal at line " << line << endl;
+            exit(1);
+        }
+    }
 };
 
 class Parser {
 public:
-    Parser(const vector<Token> &tokens) {
-        this->tokens = tokens;  
-        this->pos = 0;          
-    }
+    Parser(const vector<Token> &tokens) : tokens(tokens), pos(0) {}
 
     void parseProgram() {
         while (tokens[pos].type != T_EOF) {
@@ -106,7 +149,9 @@ private:
     size_t pos;
 
     void parseStatement() {
-        if (tokens[pos].type == T_INT) {
+        if (tokens[pos].type == T_INT || tokens[pos].type == T_FLOAT || 
+            tokens[pos].type == T_DOUBLE || tokens[pos].type == T_STRING || 
+            tokens[pos].type == T_BOOL || tokens[pos].type == T_CHAR) {
             parseDeclaration();
         } else if (tokens[pos].type == T_ID) {
             parseAssignment();
@@ -132,9 +177,35 @@ private:
     }
 
     void parseDeclaration() {
-        expect(T_INT);
-        expect(T_ID);
-        expect(T_SEMICOLON);  
+        if (tokens[pos].type == T_INT) {
+            expect(T_INT);
+            expect(T_ID);
+            expect(T_SEMICOLON);  
+        } else if (tokens[pos].type == T_FLOAT) {
+            expect(T_FLOAT);
+            expect(T_ID);
+            expect(T_SEMICOLON);  
+        } else if (tokens[pos].type == T_DOUBLE) {
+            expect(T_DOUBLE);
+            expect(T_ID);
+            expect(T_SEMICOLON);  
+        } else if (tokens[pos].type == T_STRING) {
+            expect(T_STRING);
+            expect(T_ID);
+            expect(T_SEMICOLON);  
+        } else if (tokens[pos].type == T_BOOL) {
+            expect(T_BOOL);
+            expect(T_ID);
+            expect(T_SEMICOLON);  
+        } else if (tokens[pos].type == T_CHAR) {
+            expect(T_CHAR);
+            expect(T_ID);
+            expect(T_SEMICOLON);  
+        } else {
+            cout << "Syntax error: unexpected token '" << tokens[pos].value 
+                 << "' at line " << tokens[pos].line << endl;
+            exit(1);
+        }
     }
 
     void parseAssignment() {
@@ -183,7 +254,8 @@ private:
     }
 
     void parseFactor() {
-        if (tokens[pos].type == T_NUM || tokens[pos].type == T_ID) {
+        if (tokens[pos].type == T_NUM || tokens[pos].type == T_ID || 
+            tokens[pos].type == T_STRING || tokens[pos].type == T_CHAR) {
             pos++;
         } else if (tokens[pos].type == T_LPAREN) {
             expect(T_LPAREN);
@@ -211,11 +283,21 @@ private:
 int main() {
     string input = R"(
         int a;
+        float b;
+        double c;
+        string name;
+        bool flag;
+        char letter;
+
         a = 5;
-        int b;
-        b = a + 10;
-        if (b > 10) {
-            return b;
+        b = 3.14;
+        c = a + b;
+        name = "Hello, World!";
+        flag = true;
+        letter = 'A';
+
+        if (a > 10) {
+            return c;
         } else {
             return 0;
         }
