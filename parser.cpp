@@ -8,7 +8,16 @@ using namespace std;
 
 enum TokenType {
     T_INT, T_FLOAT, T_DOUBLE, T_STRING, T_BOOL, T_CHAR,
+    T_SHORT, T_LONG, T_VOID,
     T_ID, T_NUM, T_IF, T_ELSE, T_RETURN,
+    T_SWITCH, T_CASE, T_DEFAULT,
+    T_FOR, T_WHILE, T_DO,
+    T_BREAK, T_CONTINUE,
+    T_FUNC, T_CLASS,
+    T_PUBLIC, T_PRIVATE, T_PROTECTED,
+    T_STATIC,
+    T_TRY, T_CATCH, T_FINALLY,
+    T_CONST, T_VOLATILE, T_NAMESPACE,
     T_ASSIGN, T_PLUS, T_MINUS, T_MUL, T_DIV, 
     T_LPAREN, T_RPAREN, T_LBRACE, T_RBRACE,  
     T_SEMICOLON, T_GT, T_EOF,
@@ -31,7 +40,16 @@ public:
     Lexer(const string &src) : pos(0), line(1), keywords({
         {"int", T_INT}, {"float", T_FLOAT}, {"double", T_DOUBLE},
         {"string", T_STRING}, {"bool", T_BOOL}, {"char", T_CHAR},
-        {"if", T_IF}, {"else", T_ELSE}, {"return", T_RETURN}
+        {"short", T_SHORT}, {"long", T_LONG}, {"void", T_VOID},
+        {"if", T_IF}, {"else", T_ELSE}, {"return", T_RETURN},
+        {"switch", T_SWITCH}, {"case", T_CASE}, {"default", T_DEFAULT},
+        {"for", T_FOR}, {"while", T_WHILE}, {"do", T_DO},
+        {"break", T_BREAK}, {"continue", T_CONTINUE},
+        {"func", T_FUNC}, {"class", T_CLASS},
+        {"public", T_PUBLIC}, {"private", T_PRIVATE}, {"protected", T_PROTECTED},
+        {"static", T_STATIC},
+        {"try", T_TRY}, {"catch", T_CATCH}, {"finally", T_FINALLY},
+        {"const", T_CONST}, {"volatile", T_VOLATILE}, {"namespace", T_NAMESPACE}
     }) {
         this->src = src;  
     }
@@ -89,7 +107,11 @@ public:
 
     string consumeNumber() {
         size_t start = pos;
-        while (pos < src.size() && (isdigit(src[pos]) || src[pos] == '.')) pos++;
+        bool hasDot = false;
+        while (pos < src.size() && (isdigit(src[pos]) || (src[pos] == '.' && !hasDot))) {
+            if (src[pos] == '.') hasDot = true;
+            pos++;
+        }
         return src.substr(start, pos - start);
     }
 
@@ -177,35 +199,10 @@ private:
     }
 
     void parseDeclaration() {
-        if (tokens[pos].type == T_INT) {
-            expect(T_INT);
-            expect(T_ID);
-            expect(T_SEMICOLON);  
-        } else if (tokens[pos].type == T_FLOAT) {
-            expect(T_FLOAT);
-            expect(T_ID);
-            expect(T_SEMICOLON);  
-        } else if (tokens[pos].type == T_DOUBLE) {
-            expect(T_DOUBLE);
-            expect(T_ID);
-            expect(T_SEMICOLON);  
-        } else if (tokens[pos].type == T_STRING) {
-            expect(T_STRING);
-            expect(T_ID);
-            expect(T_SEMICOLON);  
-        } else if (tokens[pos].type == T_BOOL) {
-            expect(T_BOOL);
-            expect(T_ID);
-            expect(T_SEMICOLON);  
-        } else if (tokens[pos].type == T_CHAR) {
-            expect(T_CHAR);
-            expect(T_ID);
-            expect(T_SEMICOLON);  
-        } else {
-            cout << "Syntax error: unexpected token '" << tokens[pos].value 
-                 << "' at line " << tokens[pos].line << endl;
-            exit(1);
-        }
+        TokenType type = tokens[pos].type;
+        expect(type);
+        expect(T_ID);
+        expect(T_SEMICOLON);  
     }
 
     void parseAssignment() {
