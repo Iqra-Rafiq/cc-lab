@@ -3,6 +3,7 @@
 #include <string>
 #include <cctype>
 #include <map>
+#include <fstream>   // For file handling
 
 using namespace std;
 
@@ -13,23 +14,15 @@ enum TokenType {
     T_SEMICOLON, T_GT, T_EOF, 
 };
 
-
 struct Token {
     TokenType type;
     string value;
 };
 
 class Lexer {
-
     private:
         string src;
         size_t pos;
-        /*
-        It hold positive values. 
-        In C++, size_t is an unsigned integer data type used to represent the 
-        size of objects in bytes or indices, especially when working with memory-related 
-        functions, arrays, and containers like vector or string. You can also use the int data type but size_t is recommended one
-        */
 
     public:
         Lexer(const string &src) {
@@ -38,7 +31,7 @@ class Lexer {
         }
 
         vector<Token> tokenize() {
-            vector<Token> tokens; //c 123 if iqra * raf iq  1 2 3 123
+            vector<Token> tokens;
             while (pos < src.size()) {
                 char current = src[pos];
                 
@@ -80,7 +73,6 @@ class Lexer {
             return tokens;
         }
 
-
         string consumeNumber() {
             size_t start = pos;
             while (pos < src.size() && isdigit(src[pos])) pos++;
@@ -94,10 +86,7 @@ class Lexer {
         }
 };
 
-
 class Parser {
- 
-
 public:
     Parser(const vector<Token> &tokens) {
         this->tokens = tokens;  
@@ -139,6 +128,7 @@ private:
         }
         expect(T_RBRACE);  
     }
+
     void parseDeclaration() {
         expect(T_INT);
         expect(T_ID);
@@ -178,7 +168,7 @@ private:
         }
         if (tokens[pos].type == T_GT) {
             pos++;
-            parseExpression();  // After relational operator, parse the next expression
+            parseExpression();  
         }
     }
 
@@ -213,18 +203,20 @@ private:
     }
 };
 
-int main() {
-    string input = R"(
-        int a;
-        a = 5;
-        int b;
-        b = a + 10;
-        if (b > 10) {
-            return b;
-        } else {
-            return 0;
-        }
-    )";
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        cerr << "Usage: " << argv[0] << " <source_file>" << endl;
+        return 1;
+    }
+
+    ifstream file(argv[1]);
+    if (!file.is_open()) {
+        cerr << "Error: Could not open file " << argv[1] << endl;
+        return 1;
+    }
+
+    string input((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+    file.close();
 
     Lexer lexer(input);
     vector<Token> tokens = lexer.tokenize();
