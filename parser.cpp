@@ -3,7 +3,6 @@
 #include <string>
 #include <cctype>
 #include <map>
-#include <fstream>   // For file handling
 
 using namespace std;
 
@@ -17,73 +16,75 @@ enum TokenType {
 struct Token {
     TokenType type;
     string value;
+    size_t line; // Add line number to the token structure
 };
 
 class Lexer {
-    private:
-        string src;
-        size_t pos;
+private:
+    string src;
+    size_t pos;
+    size_t line; // New member to keep track of line number
 
-    public:
-        Lexer(const string &src) {
-            this->src = src;  
-            this->pos = 0;    
-        }
+public:
+    Lexer(const string &src) : pos(0), line(1) { // Initialize line to 1
+        this->src = src;  
+    }
 
-        vector<Token> tokenize() {
-            vector<Token> tokens;
-            while (pos < src.size()) {
-                char current = src[pos];
-                
-                if (isspace(current)) {
-                    pos++;
-                    continue;
-                }
-                if (isdigit(current)) {
-                    tokens.push_back(Token{T_NUM, consumeNumber()});
-                    continue;
-                }
-                if (isalpha(current)) {
-                    string word = consumeWord();
-                    if (word == "int") tokens.push_back(Token{T_INT, word});
-                    else if (word == "if") tokens.push_back(Token{T_IF, word});
-                    else if (word == "else") tokens.push_back(Token{T_ELSE, word});
-                    else if (word == "return") tokens.push_back(Token{T_RETURN, word});
-                    else tokens.push_back(Token{T_ID, word});
-                    continue;
-                }
-                
-                switch (current) {
-                        case '=': tokens.push_back(Token{T_ASSIGN, "="}); break;
-                        case '+': tokens.push_back(Token{T_PLUS, "+"}); break;
-                        case '-': tokens.push_back(Token{T_MINUS, "-"}); break;
-                        case '*': tokens.push_back(Token{T_MUL, "*"}); break;
-                        case '/': tokens.push_back(Token{T_DIV, "/"}); break;
-                        case '(': tokens.push_back(Token{T_LPAREN, "("}); break;
-                        case ')': tokens.push_back(Token{T_RPAREN, ")"}); break;
-                        case '{': tokens.push_back(Token{T_LBRACE, "{"}); break;  
-                        case '}': tokens.push_back(Token{T_RBRACE, "}"}); break;  
-                        case ';': tokens.push_back(Token{T_SEMICOLON, ";"}); break;
-                        case '>': tokens.push_back(Token{T_GT, ">"}); break;
-                        default: cout << "Unexpected character: " << current << endl; exit(1);
-                }
+    vector<Token> tokenize() {
+        vector<Token> tokens;
+        while (pos < src.size()) {
+            char current = src[pos];
+            if (isspace(current)) {
+                if (current == '\n') line++; // Increment line number on new line
                 pos++;
+                continue;
             }
-            tokens.push_back(Token{T_EOF, ""});
-            return tokens;
+            if (isdigit(current)) {
+                tokens.push_back(Token{T_NUM, consumeNumber(), line}); // Set line number
+                continue;
+            }
+            if (isalpha(current)) {
+                string word = consumeWord();
+                Token token;
+                if (word == "int") token = {T_INT, word, line};
+                else if (word == "if") token = {T_IF, word, line};
+                else if (word == "else") token = {T_ELSE, word, line};
+                else if (word == "return") token = {T_RETURN, word, line};
+                else token = {T_ID, word, line};
+                tokens.push_back(token);
+                continue;
+            }
+            switch (current) {
+                case '=': tokens.push_back(Token{T_ASSIGN, "=", line}); break;
+                case '+': tokens.push_back(Token{T_PLUS, "+", line}); break;
+                case '-': tokens.push_back(Token{T_MINUS, "-", line}); break;
+                case '*': tokens.push_back(Token{T_MUL, "*", line}); break;
+                case '/': tokens.push_back(Token{T_DIV, "/", line}); break;
+                case '(': tokens.push_back(Token{T_LPAREN, "(", line}); break;
+                case ')': tokens.push_back(Token{T_RPAREN, ")", line}); break;
+                case '{': tokens.push_back(Token{T_LBRACE, "{", line}); break;  
+                case '}': tokens.push_back(Token{T_RBRACE, "}", line}); break;  
+                case ';': tokens.push_back(Token{T_SEMICOLON, ";", line}); break;
+                case '>': tokens.push_back(Token{T_GT, ">", line}); break;
+                default: cout << "Unexpected character: " << current << " at line " << line << endl; exit(1);
+            }
+            pos++;
         }
+        tokens.push_back(Token{T_EOF, "", line});
+        return tokens;
+    }
 
-        string consumeNumber() {
-            size_t start = pos;
-            while (pos < src.size() && isdigit(src[pos])) pos++;
-            return src.substr(start, pos - start);
-        }
+    string consumeNumber() {
+        size_t start = pos;
+        while (pos < src.size() && isdigit(src[pos])) pos++;
+        return src.substr(start, pos - start);
+    }
 
-        string consumeWord() {
-            size_t start = pos;
-            while (pos < src.size() && isalnum(src[pos])) pos++;
-            return src.substr(start, pos - start);
-        }
+    string consumeWord() {
+        size_t start = pos;
+        while (pos < src.size() && isalnum(src[pos])) pos++;
+        return src.substr(start, pos - start);
+    }
 };
 
 class Parser {
@@ -116,7 +117,8 @@ private:
         } else if (tokens[pos].type == T_LBRACE) {  
             parseBlock();
         } else {
-            cout << "Syntax error: unexpected token " << tokens[pos].value << endl;
+            cout << "Syntax error: unexpected token '" << tokens[pos].value 
+                 << "' at line " << tokens[pos].line << endl;
             exit(1);
         }
     }
@@ -188,7 +190,8 @@ private:
             parseExpression();
             expect(T_RPAREN);
         } else {
-            cout << "Syntax error: unexpected token " << tokens[pos].value << endl;
+            cout << "Syntax error: unexpected token '" << tokens[pos].value 
+                 << "' at line " << tokens[pos].line << endl;
             exit(1);
         }
     }
@@ -197,26 +200,26 @@ private:
         if (tokens[pos].type == type) {
             pos++;
         } else {
-            cout << "Syntax error: expected " << type << " but found " << tokens[pos].value << endl;
+            cout << "Syntax error: expected token type " << type 
+                 << " but found '" << tokens[pos].value 
+                 << "' at line " << tokens[pos].line << endl;
             exit(1);
         }
     }
 };
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        cerr << "Usage: " << argv[0] << " <source_file>" << endl;
-        return 1;
-    }
-
-    ifstream file(argv[1]);
-    if (!file.is_open()) {
-        cerr << "Error: Could not open file " << argv[1] << endl;
-        return 1;
-    }
-
-    string input((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-    file.close();
+int main() {
+    string input = R"(
+        int a;
+        a = 5;
+        int b;
+        b = a + 10;
+        if (b > 10) {
+            return b;
+        } else {
+            return 0;
+        }
+    )";
 
     Lexer lexer(input);
     vector<Token> tokens = lexer.tokenize();
